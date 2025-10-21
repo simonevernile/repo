@@ -35,22 +35,9 @@ Prerequisites:
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_project_id"></a> [project_id](#input_project_id) | GCP project ID where load balancers will be created. | `string` | n/a | yes |
-| <a name="input_load_balancers"></a> [load_balancers](#input_load_balancers) | List describing each load balancer to provision. | <pre>list(object({
-    name_prefix = string
-    type        = string
-    region      = string
-    network     = optional(string)
-    subnetwork  = optional(string)
-    address     = optional(string)
-    tcp_ports   = optional(list(number))
-    udp_ports   = optional(list(number))
-    backend_zone = optional(string)
-    backend_ig   = optional(string)
-    labels       = optional(map(string))
-    enabled      = optional(bool, true)
-  }))
-  ``` </pre> | n/a | yes |
+| project_id | GCP project ID where load balancers will be created. | `string` | n/a | yes |
+| load_balancers | List describing each load balancer to provision. | `list(object({ name_prefix = string, type = string, region = string, network = optional(string), subnetwork = optional(string), address = optional(string), tcp_ports = optional(list(number)), udp_ports = optional(list(number)), backend_zone = optional(string), backend_ig = optional(string), labels = optional(map(string)), enabled = optional(bool, true) }))` | n/a | yes |
+
 
 ## Outputs
 
