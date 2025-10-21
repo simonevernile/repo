@@ -38,9 +38,7 @@ resource "google_compute_instance" "my_vm" {
       type  = var.disk_type
     }
 
-    disk_encryption_key {
-      kms_key_self_link = google_kms_crypto_key.crypto_key.id
-    }
+    kms_key_self_link = google_kms_crypto_key.crypto_key.id
   }
 
   network_interface {

@@ -20,7 +20,7 @@ This module provisions a public and private load balancer in GCP, allowing traff
 ## Usage Example
 ```hcl
 module "load_balancer" {
-  source = "git::https://github.com/simonevernile/repo-tf.git//catalogo/gcp/load%20balancer?ref=main"
+  source = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/load%20balancer?ref=main"
   region = "us-central1"
 }
 ```

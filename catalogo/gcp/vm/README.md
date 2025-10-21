@@ -63,7 +63,7 @@ Prerequisites:
 ## Usage
 ```hcl
 module "vm" {
-  source       = "git::https://github.com/simonevernile/repo-tf.git//catalogo/gcp/vm?ref=main"
+  source       = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/vm?ref=main"
   project_id   = var.project_id
   vm_name      = "web-01"
   zone         = "europe-west1-b"
@@ -77,7 +77,7 @@ module "vm" {
 
 ```hcl
 module "vm_custom" {
-  source     = "git::https://github.com/simonevernile/repo-tf.git//catalogo/gcp/vm?ref=main"
+  source     = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/vm?ref=main"
   project_id = var.project_id
   vm_name    = "api-01"
 

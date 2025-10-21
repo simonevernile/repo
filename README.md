@@ -14,8 +14,8 @@ Reusable Terraform modules for provisioning resources on Google Cloud Platform (
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/simonevernile/repo-tf.git
-   cd repo-tf
+   git clone https://github.com/simonevernile/repo.git
+   cd repo
    ```
 2. **Configure variables**
    - Define `*.tfvars` files or set variables directly in the modules, depending on your use case.
@@ -34,7 +34,7 @@ Reusable Terraform modules for provisioning resources on Google Cloud Platform (
 ### VM Module
 ```hcl
 module "vm" {
-  source       = "git::https://github.com/simonevernile/repo-tf.git//catalogo/gcp/vm?ref=main"
+  source       = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/vm?ref=main"
   project_id   = var.project_id
   vm_name      = "my-vm"
   zone         = "us-central1-a"
@@ -45,7 +45,7 @@ module "vm" {
 ### Firewall Module
 ```hcl
 module "firewall" {
-  source      = "git::https://github.com/simonevernile/repo-tf.git//catalogo/gcp/firewall?ref=main"
+  source      = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/firewall?ref=main"
   network     = "default"
   target_tags = ["web"]
   local_range = "10.128.0.0/20"
@@ -58,7 +58,7 @@ module "firewall" {
 ### Load Balancer Module
 ```hcl
 module "load_balancers" {
-  source     = "git::https://github.com/simonevernile/repo-tf.git//catalogo/gcp/load_balancer?ref=main"
+  source     = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/load_balancer?ref=main"
   project_id = var.project_id
 
   load_balancers = [

@@ -68,7 +68,7 @@ Prerequisites:
 ## Usage
 ```hcl
 module "load_balancers" {
-  source     = "git::https://github.com/simonevernile/repo-tf.git//catalogo/gcp/load_balancer?ref=main"
+  source     = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/load_balancer?ref=main"
   project_id = var.project_id
 
   load_balancers = [
@@ -98,7 +98,7 @@ module "load_balancers" {
 
 ```hcl
 module "load_balancers" {
-  source     = "git::https://github.com/simonevernile/repo-tf.git//catalogo/gcp/load_balancer?ref=main"
+  source     = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/load_balancer?ref=main"
   project_id = var.project_id
 
   load_balancers = [

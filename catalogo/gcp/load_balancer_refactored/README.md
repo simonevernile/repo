@@ -23,7 +23,7 @@ provider "google" {
 }
 
 module "lb" {
-  source  = "git::https://github.com/simonevernile/repo-tf.git//catalogo/gcp/load_balancer_refactored?ref=main"
+  source  = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/load_balancer_refactored?ref=main"
 
   project_id = var.project_id
   region     = var.region

@@ -65,7 +65,7 @@ Prerequisites:
 ## Usage
 ```hcl
 module "firewall" {
-  source      = "git::https://github.com/simonevernile/repo-tf.git//catalogo/gcp/firewall?ref=main"
+  source      = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/firewall?ref=main"
   network     = "default"
   target_tags = ["web"]
   local_range = "10.128.0.0/20"
@@ -79,7 +79,7 @@ module "firewall" {
 
 ```hcl
 module "firewall_web" {
-  source      = "git::https://github.com/simonevernile/repo-tf.git//catalogo/gcp/firewall?ref=main"
+  source      = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/firewall?ref=main"
   network     = "default"
   target_tags = ["web"]
   local_range = "10.128.0.0/20"

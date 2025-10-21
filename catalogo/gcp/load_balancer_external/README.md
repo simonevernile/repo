@@ -69,7 +69,7 @@ Prerequisites:
 ## Usage
 ```hcl
 module "lb_external" {
-  source       = "git::https://github.com/simonevernile/repo-tf.git//catalogo/gcp/load_balancer_external?ref=main"
+  source       = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/load_balancer_external?ref=main"
   project_id   = var.project_id
   name_prefix  = "app"
   region       = "europe-west1"
@@ -85,7 +85,7 @@ module "lb_external" {
 
 ```hcl
 module "lb_external_static" {
-  source       = "git::https://github.com/simonevernile/repo-tf.git//catalogo/gcp/load_balancer_external?ref=main"
+  source       = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/load_balancer_external?ref=main"
   project_id   = var.project_id
   name_prefix  = "app"
   region       = "europe-west1"

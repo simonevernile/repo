@@ -71,7 +71,7 @@ Prerequisiti:
 ## Usage
 ```hcl
 module "lb_internal" {
-  source      = "git::https://github.com/simonevernile/repo-tf.git//catalogo/gcp/load_balancer_internal?ref=main"
+  source      = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/load_balancer_internal?ref=main"
   project_id  = var.project_id
   name_prefix = "internal-services"
   region      = "europe-west1"
@@ -88,7 +88,7 @@ module "lb_internal" {
 
 ```hcl
 module "lb_internal_multi" {
-  source      = "git::https://github.com/simonevernile/repo-tf.git//catalogo/gcp/load_balancer_internal?ref=main"
+  source      = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/load_balancer_internal?ref=main"
   project_id  = var.project_id
   name_prefix = "internal-services"
   region      = "europe-west1"
