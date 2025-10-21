@@ -49,7 +49,8 @@ Prerequisites:
     backend_ig   = optional(string)
     labels       = optional(map(string))
     enabled      = optional(bool, true)
-  }))</pre> | n/a | yes |
+  }))
+  ``` </pre> | n/a | yes |
 
 ## Outputs
 
