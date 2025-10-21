@@ -1,22 +1,78 @@
-variable "region" {
-  description = "The region for the load balancer"
+variable "project_id" {
+  description = "GCP project ID."
   type        = string
+}
+
+variable "region" {
+  description = "Region for regional load balancer resources."
+  type        = string
+}
+
+variable "name_prefix" {
+  description = "Prefix used when naming resources for the load balancers."
+  type        = string
+}
+
+variable "labels" {
+  description = "Labels to apply to created resources."
+  type        = map(string)
+  default     = {}
 }
 
 variable "network" {
-  description = "The network for the load balancer"
+  description = "VPC network self_link or name for the internal load balancer."
   type        = string
-  default     = "default"
 }
 
-variable "allow_http" {
-  description = "Flag to allow HTTP traffic (port 80)"
-  type        = bool
-  default     = true
+variable "subnetwork" {
+  description = "Subnetwork self_link or name for the internal load balancer."
+  type        = string
 }
 
-variable "allow_https" {
-  description = "Flag to allow HTTPS traffic (port 443)"
-  type        = bool
-  default     = true
+variable "internal_address" {
+  description = "Optional static internal IP address for the internal load balancer."
+  type        = string
+  default     = null
+}
+
+variable "backend_instance_group_zonal" {
+  description = "Self_link of an existing zonal instance group to use as backend for the internal load balancer."
+  type        = string
+  default     = null
+}
+
+variable "backend_zone" {
+  description = "Zone to create a placeholder instance group when no backend_instance_group_zonal is provided."
+  type        = string
+  default     = null
+}
+
+variable "target_pool_instances" {
+  description = "List of instance self_links to attach to the external target pool."
+  type        = list(string)
+  default     = []
+}
+
+variable "external_tcp_ports" {
+  description = "TCP ports exposed by the external network load balancer."
+  type        = list(number)
+  default     = [80]
+}
+
+variable "external_udp_ports" {
+  description = "UDP ports exposed by the external network load balancer."
+  type        = list(number)
+  default     = []
+}
+
+variable "internal_tcp_ports" {
+  description = "TCP ports exposed by the internal load balancer."
+  type        = list(number)
+  default     = [80]
+}
+
+variable "internal_udp_ports" {
+  description = "UDP ports exposed by the internal load balancer."
+  type        = list(number)
+  default     = []
 }

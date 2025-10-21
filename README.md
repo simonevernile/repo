@@ -1,110 +1,92 @@
-
 # Terraform GCP Modules
 
-Welcome to the **Terraform GCP Modules** repository! This repository contains reusable Terraform modules designed to provision resources on Google Cloud Platform (GCP). These modules are organized for specific resources such as Virtual Machines (VMs), Firewall Rules, and Load Balancers.
+Reusable Terraform modules for provisioning resources on Google Cloud Platform (GCP). Each module targets a specific resource type and ships with dedicated documentation covering variables, outputs, and usage examples.
 
 ## Modules Overview
 
-| Module         | Description                                                      | Key Variables                                                        | Required Variables               | Optional Variables               | Documentation Link                                            |
-|----------------|------------------------------------------------------------------|----------------------------------------------------------------------|----------------------------------|-----------------------------------|-------------------------------------------------------------|
-| **VM**          | Creates a Google Cloud Virtual Machine (VM) with encryption.      | `vm_name`, `zone`, `machine_type`, `disk_size`, `network`             | `vm_name`, `zone`                | `machine_type`, `disk_size`, `disk_type`, `image`, `network` | [VM Module Docs](https://github.com/simonevernile/repo/blob/main/catalogo/gcp/vm/docs/doc.md) |
-| **Firewall**    | Configures firewall rules for public and local traffic control.  | `network`, `target_tags`, `local_range`, `ssh_tags`, `allow_http`     | `network`, `target_tags`, `local_range`, `ssh_tags` | `allow_http`, `allow_https` | [Firewall Module Docs](https://github.com/simonevernile/repo/blob/main/catalogo/gcp/firewall/docs/doc.md) |
-| **Load Balancer** | Provisions public and private load balancers.                   | `region`, `network`, `allow_http`, `allow_https`                      | `region`                         | `network`, `allow_http`, `allow_https` | [Load Balancer Module Docs](https://github.com/simonevernile/repo/blob/main/catalogo/gcp/load%20balancer/docs/doc.md) |
+| Module | Description | Required variables | Key optional variables | Documentation |
+| --- | --- | --- | --- | --- |
+| **VM** | Creates a Virtual Machine with an encrypted boot disk and configurable parameters. | `project_id`, `vm_name` | `zone`, `machine_type`, `disk_size`, `disk_type`, `image`, `network`, `location` | [VM documentation](catalogo/gcp/vm/README.md) |
+| **Firewall** | Configures firewall rules for public and private traffic to GCP resources. | `network`, `target_tags`, `local_range`, `ssh_tags` | `allow_http`, `allow_https` | [Firewall documentation](catalogo/gcp/firewall/README.md) |
+| **Load Balancer** | Manages external and internal load balancers from a single list. | `project_id`, `load_balancers[*].name_prefix`, `load_balancers[*].type`, `load_balancers[*].region` | `load_balancers[*].network`, `subnetwork`, `address`, `tcp_ports`, `udp_ports`, `backend_zone`, `backend_ig`, `labels`, `enabled` | [Load Balancer documentation](catalogo/gcp/load_balancer/README.md) |
 
-## Getting Started
+## Quickstart
 
-To use any of the modules in this repository, you need to clone this repository and configure the necessary variables for each module.
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/simonevernile/repo-tf.git
+   cd repo-tf
+   ```
+2. **Configure variables**
+   - Define `*.tfvars` files or set variables directly in the modules, depending on your use case.
+3. **Initialize Terraform**
+   ```bash
+   terraform init
+   ```
+4. **Apply the configuration**
+   ```bash
+   terraform apply
+   ```
+   Review the generated plan and confirm by typing `yes` to create the resources.
 
-### 1. Clone the repository
+## Usage Examples
 
-```bash
-git clone https://github.com/simonevernile/repo.git
-cd repo
-```
-
-### 2. Configure your variables
-
-You need to create a `variables.tf` file for your specific use case. For example, for creating a VM, you can configure the following variables:
-
+### VM Module
 ```hcl
 module "vm" {
-  source    = "./modules/vm"
-  vm_name   = "my-vm"
-  zone      = "us-central1-a"
-  machine_type = "n1-standard-1"
+  source       = "git::https://github.com/simonevernile/repo-tf.git//catalogo/gcp/vm?ref=main"
+  project_id   = var.project_id
+  vm_name      = "my-vm"
+  zone         = "us-central1-a"
+  machine_type = "e2-medium"
 }
 ```
 
-### 3. Initialize Terraform
-
-Once you've configured the variables, run the following command to initialize the Terraform working directory:
-
-```bash
-terraform init
+### Firewall Module
+```hcl
+module "firewall" {
+  source      = "git::https://github.com/simonevernile/repo-tf.git//catalogo/gcp/firewall?ref=main"
+  network     = "default"
+  target_tags = ["web"]
+  local_range = "10.128.0.0/20"
+  ssh_tags    = ["ssh"]
+  allow_http  = true
+  allow_https = true
+}
 ```
 
-### 4. Apply the configuration
+### Load Balancer Module
+```hcl
+module "load_balancers" {
+  source     = "git::https://github.com/simonevernile/repo-tf.git//catalogo/gcp/load_balancer?ref=main"
+  project_id = var.project_id
 
-After initializing, run the following command to apply the configuration and create the resources:
-
-```bash
-terraform apply
+  load_balancers = [
+    {
+      name_prefix = "app-ext"
+      type        = "external"
+      region      = "europe-west1"
+      tcp_ports   = [80, 443]
+      labels      = { app = "frontend" }
+    },
+    {
+      name_prefix  = "app-int"
+      type         = "internal"
+      region       = "europe-west1"
+      network      = "default"
+      subnetwork   = "default"
+      tcp_ports    = [8080, 8443]
+      backend_zone = "europe-west1-b"
+      labels       = { app = "backend" }
+    }
+  ]
+}
 ```
-
-Terraform will show you a plan of the actions it will take. Type `yes` to apply the plan and create the resources.
-
-## Available Modules
-
-### **1. VM Module**
-
-The VM module creates a Google Cloud Virtual Machine with the ability to encrypt the disk using a custom KMS key.
-
-**Input Variables:**
-- `vm_name` (Required)
-- `zone` (Required)
-- `machine_type` (Optional, default: `n1-standard-1`)
-- `disk_size` (Optional, default: `10`)
-- `disk_type` (Optional, default: `pd-standard`)
-- `image` (Optional, default: `debian-9-stretch-v20191210`)
-
-**Outputs:**
-- `vm_ip` (Public IP address)
-- `vm_private_ip` (Private IP address)
-
-### **2. Firewall Module**
-
-The Firewall module allows you to set up firewall rules for controlling access to your resources in GCP.
-
-**Input Variables:**
-- `network` (Required)
-- `target_tags` (Required)
-- `local_range` (Required)
-- `ssh_tags` (Required)
-- `allow_http` (Optional, default: `true`)
-- `allow_https` (Optional, default: `true`)
-
-**Outputs:**
-- `public_http_firewall`
-- `local_ssh_firewall`
-
-### **3. Load Balancer Module**
-
-This module sets up both public and private load balancers in GCP.
-
-**Input Variables:**
-- `region` (Required)
-- `network` (Optional, default: `default`)
-- `allow_http` (Optional, default: `true`)
-- `allow_https` (Optional, default: `true`)
-
-**Outputs:**
-- `public_ip` (Public IP address)
-- `private_ip` (Private IP address)
 
 ## Contributing
 
-If you find any issues or would like to contribute improvements to these modules, feel free to fork the repository and submit a pull request. All contributions are welcome!
+If you encounter issues or want to propose improvements to the modules, open an *issue* or submit a *pull request*. Contributions are welcome!
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is distributed under the MIT license. See [LICENSE](LICENSE) for details.

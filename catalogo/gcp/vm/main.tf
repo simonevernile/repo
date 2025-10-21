@@ -16,10 +16,10 @@ resource "google_kms_crypto_key" "crypto_key" {
 }
 
 resource "google_compute_disk" "my_disk" {
-  name  = "my-disk"
-  size  = var.disk_size
-  type  = var.disk_type
-  zone  = var.zone
+  name = "my-disk"
+  size = var.disk_size
+  type = var.disk_type
+  zone = var.zone
 
   disk_encryption_key {
     kms_key_self_link = google_kms_crypto_key.crypto_key.id
