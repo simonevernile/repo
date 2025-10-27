@@ -5,8 +5,8 @@
 ## Resource Schema
 The wrapper iterates over a list of descriptors and provisions the requested load balancers by delegating to:
 
-- [`catalogo/gcp/load_balancer_external`](../load_balancer_external) for external TCP/UDP network load balancers backed by target pools.
-- [`catalogo/gcp/load_balancer_internal`](../load_balancer_internal) for regional internal TCP/UDP load balancers with regional backend services.
+- [`catalogo/gcp/load_balancer_external`](https://github.com/simonevernile/repo/tree/main/catalogo/gcp/load_balancer_external) for external TCP/UDP network load balancers backed by target pools.
+- [`catalogo/gcp/load_balancer_internal`](https://github.com/simonevernile/repo/tree/main/catalogo/gcp/load_balancer_internal) for regional internal TCP/UDP load balancers with regional backend services.
 
 Each enabled entry is forwarded to the appropriate child module; disabled entries (with `enabled = false`) are skipped. Any prerequisite backends (instance groups, services, subnets) must already exist.
 

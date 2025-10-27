@@ -6,9 +6,9 @@ Reusable Terraform modules for provisioning resources on Google Cloud Platform (
 
 | Module | Description | Required variables | Key optional variables | Documentation |
 | --- | --- | --- | --- | --- |
-| **VM** | Creates a Compute Engine instance with a dedicated boot disk. | `project_id`, `vm_name`, `disk_name`, `image`, `subnetwork` | `region`, `zone`, `machine_type`, `disk_size`, `disk_type`, `network`, `tags` | [VM documentation](catalogo/gcp/vm/README.md) |
-| **Firewall** | Configures firewall rules for public and private traffic to GCP resources. | `network`, `target_tags`, `local_range` | `ssh_tags`, `allow_http`, `allow_https` | [Firewall documentation](catalogo/gcp/firewall/README.md) |
-| **Load Balancer** | Wraps the external and internal load balancer modules to build multiple LBs from a single list. | `project_id`, `load_balancers[*].name_prefix`, `load_balancers[*].type`, `load_balancers[*].region` | `load_balancers[*].network`, `subnetwork`, `address`, `tcp_ports`, `udp_ports`, `target_pool_instances`, `backend_ig`, `labels`, `enabled` | [Load Balancer documentation](catalogo/gcp/load_balancer/README.md) |
+| **VM** | Creates a Compute Engine instance with a dedicated boot disk. | `project_id`, `vm_name`, `boot_disk`, `boot_disk_image`, `subnetwork` | `region`, `zone`, `machine_type`, `network`, `tags`, `additional_disks` | [VM documentation](https://github.com/simonevernile/repo/blob/main/catalogo/gcp/vm/README.md) |
+| **Firewall** | Configures firewall rules for public and private traffic to GCP resources. | `network`, `target_tags`, `local_range` | `ssh_tags`, `allow_http`, `allow_https` | [Firewall documentation](https://github.com/simonevernile/repo/blob/main/catalogo/gcp/firewall/README.md) |
+| **Load Balancer** | Wraps the external and internal load balancer modules to build multiple LBs from a single list. | `project_id`, `load_balancers[*].name_prefix`, `load_balancers[*].type`, `load_balancers[*].region` | `load_balancers[*].network`, `subnetwork`, `address`, `tcp_ports`, `udp_ports`, `target_pool_instances`, `backend_ig`, `labels`, `enabled` | [Load Balancer documentation](https://github.com/simonevernile/repo/blob/main/catalogo/gcp/load_balancer/README.md) |
 
 ## Quickstart
 
@@ -34,12 +34,17 @@ Reusable Terraform modules for provisioning resources on Google Cloud Platform (
 ### VM Module
 ```hcl
 module "vm" {
-  source       = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/vm?ref=main"
-  project_id   = var.project_id
-  vm_name      = "my-vm"
-  disk_name    = "my-vm-boot"
-  image        = "projects/debian-cloud/global/images/family/debian-12"
-  subnetwork   = "default"
+  source     = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/vm?ref=main"
+  project_id = var.project_id
+  vm_name    = "my-vm"
+  network    = "default"
+  subnetwork = "default"
+
+  boot_disk = {
+    name = "my-vm-boot"
+  }
+
+  boot_disk_image = "projects/debian-cloud/global/images/family/debian-12"
 }
 ```
 
@@ -87,23 +92,22 @@ module "load_balancers" {
 
 ### End-to-end example: Controlled SSH access with an HTTP load balancer
 
-The [examples/main.tf](examples/main.tf) configuration composes the modules to:
+The [examples/main.tf](https://github.com/simonevernile/repo/blob/main/examples/main.tf) configuration composes the modules to:
 
 1. Provision a Compute Engine VM and configure a dedicated `Implementazione` user with passwordless sudo.
-2. Generate an SSH key pair that is automatically authorized on the instance.
+2. Generate a random password for the user and set it on first boot through the startup script.
 3. Allow SSH to the VM only from a provided CIDR while exposing TCP/80 via an external load balancer.
 
 After `terraform apply`, retrieve the generated credentials with:
 
 ```bash
-terraform output -raw ssh_private_key_pem > implementazione.pem
-chmod 600 implementazione.pem
 terraform output ssh_user
+terraform output -raw ssh_password
 ```
 
-Use the saved private key together with the reported username to connect through the private network while port 80 remains publicly accessible through the load balancer.
+Use the reported username and password to connect through the private network while port 80 remains publicly accessible through the load balancer.
 
-> **Where is the private key stored?** When Terraform runs from the `examples/` directory with the default local backend, the generated key pair is written to the Terraform state file on disk (for example `examples/terraform.tfstate`). That file sits alongside your configuration in the same filesystem where you execute Terraform, so secure it appropriately (restrict permissions, encrypt it at rest, or move the state to a remote backend) because anyone with read access to the state can extract the private key. The `terraform output -raw ssh_private_key_pem` command above is simply a convenient way to export the same key material to a dedicated file that you control.
+> **Where is the password stored?** When Terraform runs from the `examples/` directory with the default local backend, the generated password is written to the Terraform state file on disk (for example `examples/terraform.tfstate`). That file sits alongside your configuration in the same filesystem where you execute Terraform, so secure it appropriately (restrict permissions, encrypt it at rest, or move the state to a remote backend) because anyone with read access to the state can extract the password. The `terraform output -raw ssh_password` command above is simply a convenient way to display the same secret contained in the state.
 
 ## Contributing
 
@@ -111,4 +115,4 @@ If you encounter issues or want to propose improvements to the modules, open an 
 
 ## License
 
-This project is distributed under the MIT license. See [LICENSE](LICENSE) for details.
+This project is distributed under the MIT license. See [LICENSE](https://github.com/simonevernile/repo/blob/main/LICENSE) for details.

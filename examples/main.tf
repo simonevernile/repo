@@ -7,9 +7,9 @@ terraform {
       version = ">= 5.0"
     }
 
-    tls = {
-      source  = "hashicorp/tls"
-      version = ">= 4.0"
+    random = {
+      source  = "hashicorp/random"
+      version = ">= 3.0"
     }
   }
 }
@@ -60,9 +60,10 @@ locals {
   ssh_user    = "Implementazione"
 }
 
-resource "tls_private_key" "implementazione" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
+resource "random_password" "implementazione" {
+  length           = 16
+  special          = true
+  override_special = "!@#%^*-_=+"
 }
 
 module "vm" {
@@ -71,12 +72,16 @@ module "vm" {
   region     = var.region
   zone       = var.zone
 
-  vm_name   = "infra-vm-01"
-  disk_name = "infra-vm-01-boot"
-  image     = "projects/debian-cloud/global/images/family/debian-12"
+  vm_name = "infra-vm-01"
 
   network    = var.network
   subnetwork = var.subnetwork
+
+  boot_disk = {
+    name = "infra-vm-01-boot"
+  }
+
+  boot_disk_image = "projects/debian-cloud/global/images/family/debian-12"
 
   tags = [local.service_tag, local.ssh_tag]
   metadata = {
@@ -88,19 +93,13 @@ module "vm" {
     set -euo pipefail
 
     USERNAME="${local.ssh_user}"
+    PASSWORD="${random_password.implementazione.result}"
 
     if ! id "$USERNAME" >/dev/null 2>&1; then
       useradd --create-home "$USERNAME"
     fi
 
-    install -d -m 700 "/home/$USERNAME/.ssh"
-
-    cat <<'EOF' > "/home/$USERNAME/.ssh/authorized_keys"
-${tls_private_key.implementazione.public_key_openssh}
-EOF
-
-    chown -R "$USERNAME:$USERNAME" "/home/$USERNAME/.ssh"
-    chmod 600 "/home/$USERNAME/.ssh/authorized_keys"
+    echo "$USERNAME:$PASSWORD" | chpasswd
 
     echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/$USERNAME"
     chmod 440 "/etc/sudoers.d/$USERNAME"
@@ -138,13 +137,8 @@ output "ssh_user" {
   value       = local.ssh_user
 }
 
-output "ssh_private_key_pem" {
-  description = "Private key that matches the VM authorized key"
-  value       = tls_private_key.implementazione.private_key_pem
+output "ssh_password" {
+  description = "Password assigned to the Implementazione user"
+  value       = random_password.implementazione.result
   sensitive   = true
-}
-
-output "ssh_public_key" {
-  description = "Public key uploaded to the VM"
-  value       = tls_private_key.implementazione.public_key_openssh
 }

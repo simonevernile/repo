@@ -1,7 +1,31 @@
-resource "google_compute_disk" "my_disk" {
-  name = var.disk_name
-  size = var.disk_size
-  type = var.disk_type
+locals {
+  additional_disks = [
+    for disk in var.additional_disks : {
+      name        = disk.name
+      size        = coalesce(disk.size, var.boot_disk.size)
+      type        = coalesce(disk.type, var.boot_disk.type)
+      mode        = coalesce(disk.mode, "READ_WRITE")
+      device_name = coalesce(disk.device_name, disk.name)
+    }
+  ]
+
+  additional_disks_map = { for disk in local.additional_disks : disk.name => disk }
+}
+
+resource "google_compute_disk" "boot" {
+  name  = var.boot_disk.name
+  size  = var.boot_disk.size
+  type  = var.boot_disk.type
+  zone  = var.zone
+  image = var.boot_disk_image
+}
+
+resource "google_compute_disk" "additional" {
+  for_each = local.additional_disks_map
+
+  name = each.value.name
+  size = each.value.size
+  type = each.value.type
   zone = var.zone
 }
 
@@ -11,7 +35,7 @@ resource "google_compute_instance" "my_vm" {
   zone         = var.zone
 
   boot_disk {
-    source = google_compute_disk.my_disk.self_link
+    source = google_compute_disk.boot.self_link
   }
 
   network_interface {
@@ -21,7 +45,16 @@ resource "google_compute_instance" "my_vm" {
     access_config {}
   }
 
-  tags                    = var.tags
+  tags                    = distinct(concat(var.tags, var.firewall_tags))
   metadata                = var.metadata
   metadata_startup_script = var.metadata_startup_script
+
+  dynamic "attached_disk" {
+    for_each = local.additional_disks_map
+    content {
+      source      = google_compute_disk.additional[attached_disk.key].self_link
+      device_name = attached_disk.value.device_name
+      mode        = attached_disk.value.mode
+    }
+  }
 }

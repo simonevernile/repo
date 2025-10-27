@@ -14,7 +14,7 @@ firewall rules that expose SSH locally, and an external TCP load balancer.
 * An external network load balancer (`catalogo/gcp/load_balancer`) that listens
   on TCP ports (80 by default) and forwards traffic to the VM via its self link.
 
-The modules are wired together in [`main.tf`](./main.tf). The VM is tagged with
+The modules are wired together in [`main.tf`](https://github.com/simonevernile/repo/blob/main/examples/main.tf). The VM is tagged with
 `restricted-ssh` so that only the SSH firewall rule matches it, and the
 load balancer consumes the instance self link as part of the target pool.
 
