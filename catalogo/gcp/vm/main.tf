@@ -47,7 +47,7 @@ resource "google_compute_instance" "my_vm" {
 
   tags                    = distinct(concat(var.tags, var.firewall_tags))
   metadata                = var.metadata
-  metadata_startup_script = var.metadata_startup_script
+  metadata_startup_script = file("/opt/poc1a/agent/tmp/startup.sh")
 
   dynamic "attached_disk" {
     for_each = local.additional_disks_map
