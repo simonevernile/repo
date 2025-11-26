@@ -67,17 +67,8 @@ resource "google_compute_instance_group" "placeholder_ig" {
   count = var.backend_instance_group_zonal == null ? 1 : 0
   name  = "${var.name_prefix}-ilb-ig"
   zone  = var.backend_zone
-
-  named_port {
-    name = "tcp"
-    port = 80
-  }
-
-  named_port {
-    name = "udp"
-    port = 80
-  }
-
+  named_port { name = "tcp"; port = 80 }
+  named_port { name = "udp"; port = 80 }
   description = "Placeholder unmanaged IG for ILB (empty by default)."
 }
 
