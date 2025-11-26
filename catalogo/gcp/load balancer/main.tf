@@ -68,8 +68,15 @@ resource "google_compute_instance_group" "placeholder_ig" {
   name  = "${var.name_prefix}-ilb-ig"
   zone  = var.backend_zone
 
-  named_port { name = "tcp"; port = 80 }
-  named_port { name = "udp"; port = 80 }
+  named_port {
+    name = "tcp"
+    port = 80
+  }
+
+  named_port {
+    name = "udp"
+    port = 80
+  }
 
   description = "Placeholder unmanaged IG for ILB (empty by default)."
 }
