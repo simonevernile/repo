@@ -1,3 +1,15 @@
+locals {
+  generated_password = var.generate_password ? random_password.root[0].result : null
+  effective_password = coalesce(var.root_password, local.generated_password)
+}
+
+resource "random_password" "root" {
+  count            = var.generate_password ? 1 : 0
+  length           = 24
+  special          = true
+  override_special = "!@#%^*-_=+"
+}
+
 resource "google_sql_database_instance" "mysql" {
   name                = var.instance_name
   project             = var.project_id
@@ -10,20 +22,76 @@ resource "google_sql_database_instance" "mysql" {
     availability_type = var.availability_type
     disk_size         = var.disk_size
     disk_type         = var.disk_type
+    disk_autoresize   = var.disk_autoresize
+
+    user_labels = var.labels
 
     ip_configuration {
-      ipv4_enabled = var.enable_public_ip
+      ipv4_enabled    = var.enable_public_ip
+      private_network = var.private_network
+      ssl_mode        = var.ssl_mode
+
+      dynamic "authorized_networks" {
+        for_each = { for net in var.authorized_networks : net.name => net }
+        content {
+          name  = authorized_networks.value.name
+          value = authorized_networks.value.cidr
+        }
+      }
+    }
+
+    backup_configuration {
+      enabled                        = var.backup.enabled
+      binary_log_enabled             = var.backup.binary_log_enabled
+      start_time                     = var.backup.start_time
+      location                       = var.backup.location
+      transaction_log_retention_days = var.backup.transaction_log_retention_days
+      backup_retention_settings {
+        retained_backups = var.backup.retained_backups
+        retention_unit   = "COUNT"
+      }
+    }
+
+    maintenance_window {
+      day          = var.maintenance_window.day
+      hour         = var.maintenance_window.hour
+      update_track = var.maintenance_window.update_track
+    }
+
+    insights_config {
+      query_insights_enabled  = var.insights.enabled
+      record_application_tags = var.insights.record_application_tags
+      record_client_address   = var.insights.record_client_address
+      query_string_length     = var.insights.query_string_length
+    }
+
+    dynamic "database_flags" {
+      for_each = var.database_flags
+      content {
+        name  = database_flags.key
+        value = database_flags.value
+      }
     }
   }
 }
 
 resource "google_sql_user" "root" {
-  count    = var.root_password == null ? 0 : 1
+  count    = local.effective_password == null ? 0 : 1
   name     = "root"
   project  = var.project_id
   instance = google_sql_database_instance.mysql.name
   host     = "%"
-  password = var.root_password
+  password = local.effective_password
+}
+
+resource "google_sql_user" "additional" {
+  for_each = { for u in var.additional_users : u.name => u }
+
+  name     = each.value.name
+  project  = var.project_id
+  instance = google_sql_database_instance.mysql.name
+  host     = each.value.host
+  password = each.value.password
 }
 
 resource "google_sql_database" "database" {
@@ -31,6 +99,6 @@ resource "google_sql_database" "database" {
   name      = var.database_name
   project   = var.project_id
   instance  = google_sql_database_instance.mysql.name
-  charset   = "utf8mb4"
-  collation = "utf8mb4_unicode_ci"
+  charset   = var.database_charset
+  collation = var.database_collation
 }

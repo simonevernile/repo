@@ -32,13 +32,14 @@ variable "udp_ports" {
 }
 
 variable "network" {
-  description = "VPC network name"
+  description = "VPC network name or self-link"
   type        = string
 }
 
 variable "subnetwork" {
-  description = "VPC subnetwork name"
+  description = "VPC subnetwork name or self-link"
   type        = string
+  default     = null
 }
 
 variable "address" {
@@ -48,6 +49,13 @@ variable "address" {
 }
 
 variable "backend_instance_group_zonal" {
-  description = "Self-link of the backend zonal instance group"
+  description = "Self-link of the backend zonal instance group. When null no backend is attached and the backend_service is created empty."
   type        = string
+  default     = null
+}
+
+variable "health_check_port" {
+  description = "TCP port used by the internal LB health check probe."
+  type        = number
+  default     = 80
 }

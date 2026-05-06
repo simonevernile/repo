@@ -36,3 +36,9 @@ variable "target_pool_instances" {
   type        = list(string)
   default     = []
 }
+
+variable "health_check_port" {
+  description = "TCP port used by the external LB HTTP health check probe."
+  type        = number
+  default     = 80
+}
