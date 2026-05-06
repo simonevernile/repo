@@ -15,7 +15,7 @@ Prerequisites:
 
 - The network and subnetwork must exist in the target region.
 - `backend_instance_group_zonal` must reference an existing zonal instance group capable of serving the requested ports.
-- Firewall rules must allow health check probes from Google.
+- Firewall rules must allow health check probes from Google on the relevant ports, also on the backends services like VM.
 
 ## Requirements
 
