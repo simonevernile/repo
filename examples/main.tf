@@ -4,13 +4,9 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = ">= 5.0"
+      version = ">= 6.0, < 7.0"
     }
 
-    random = {
-      source  = "hashicorp/random"
-      version = ">= 3.0"
-    }
   }
 }
 
@@ -58,12 +54,25 @@ locals {
   service_tag = "http-service"
   ssh_tag     = "restricted-ssh"
   ssh_user    = "Implementazione"
+
+  common_labels = {
+    environment = "demo"
+    owner       = "infra-team"
+  }
 }
 
-resource "random_password" "implementazione" {
-  length           = 16
-  special          = true
-  override_special = "!@#%^*-_=+"
+module "vm_sa" {
+  source     = "../catalogo/gcp/service_account"
+  project_id = var.project_id
+
+  account_id   = "infra-vm-sa"
+  display_name = "Service account for infra-vm-01"
+  description  = "Runtime identity used by the example VM"
+
+  project_roles = [
+    "roles/logging.logWriter",
+    "roles/monitoring.metricWriter",
+  ]
 }
 
 module "vm" {
@@ -79,41 +88,45 @@ module "vm" {
 
   boot_disk = {
     name = "infra-vm-01-boot"
+    size = 20
+    type = "pd-balanced"
   }
 
-  boot_disk_image = "projects/debian-cloud/global/images/family/debian-12"
+  # Lo startup.sh usa dnf e il gruppo wheel: serve un'immagine RHEL-based.
+  boot_disk_image = "projects/rocky-linux-cloud/global/images/family/rocky-linux-9"
 
-  tags = [local.service_tag, local.ssh_tag]
+  labels = local.common_labels
+  tags   = [local.service_tag, local.ssh_tag]
   metadata = {
     "block-project-ssh-keys" = "TRUE"
   }
 
-  metadata_startup_script = <<-EOT
-    #!/bin/bash
-    set -euo pipefail
+  service_account = {
+    email = module.vm_sa.email
+  }
 
-    USERNAME="${local.ssh_user}"
-    PASSWORD="${random_password.implementazione.result}"
+  shielded_vm = {
+    secure_boot          = true
+    vtpm                 = true
+    integrity_monitoring = true
+  }
 
-    if ! id "$USERNAME" >/dev/null 2>&1; then
-      useradd --create-home "$USERNAME"
-    fi
-
-    echo "$USERNAME:$PASSWORD" | chpasswd
-
-    echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/$USERNAME"
-    chmod 440 "/etc/sudoers.d/$USERNAME"
-  EOT
+  metadata_startup_script = file("${path.module}/startup.sh")
 }
 
 module "firewall" {
-  source = "../catalogo/gcp/firewall"
+  source     = "../catalogo/gcp/firewall"
+  project_id = var.project_id
 
-  network     = var.network
-  target_tags = [local.service_tag]
-  local_range = [var.ssh_source_cidr]
-  ssh_tags    = [local.ssh_tag]
-  allow_http  = true
+  name_prefix         = "infra"
+  network             = var.network
+  target_tags         = [local.service_tag]
+  local_range         = [var.ssh_source_cidr]
+  ssh_tags            = [local.ssh_tag]
+  allow_http          = true
+  allow_iap_ssh       = true
+  allow_health_checks = true
+  enable_logging      = true
 }
 
 module "http_lb" {
@@ -126,19 +139,46 @@ module "http_lb" {
       type        = "external"
       region      = var.region
       tcp_ports   = [80]
+      labels      = local.common_labels
 
       target_pool_instances = [module.vm.instance_self_link]
     }
   ]
 }
 
+module "artifacts_bucket" {
+  source     = "../catalogo/gcp/gcs_bucket"
+  project_id = var.project_id
+
+  name                        = "${var.project_id}-infra-artifacts"
+  location                    = upper(substr(var.region, 0, 2)) == "EU" ? "EU" : "US"
+  versioning                  = true
+  uniform_bucket_level_access = true
+  labels                      = local.common_labels
+
+  lifecycle_rules = [
+    {
+      action    = { type = "SetStorageClass", storage_class = "NEARLINE" }
+      condition = { age = "30" }
+    },
+    {
+      action    = { type = "Delete" }
+      condition = { age = "365" }
+    },
+  ]
+}
+
 output "ssh_user" {
-  description = "User provisioned on the VM for SSH access"
+  description = "Service user provisioned by examples/startup.sh."
   value       = local.ssh_user
 }
 
-output "ssh_password" {
-  description = "Password assigned to the Implementazione user"
-  value       = random_password.implementazione.result
-  sensitive   = true
+output "vm_service_account" {
+  description = "Service account attached to the VM."
+  value       = module.vm_sa.email
+}
+
+output "artifacts_bucket_url" {
+  description = "GCS URL of the artifacts bucket."
+  value       = module.artifacts_bucket.url
 }

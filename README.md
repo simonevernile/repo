@@ -2,16 +2,22 @@
 
 Reusable Terraform modules for provisioning resources on Google Cloud Platform (GCP). Each module targets a specific resource type and ships with dedicated documentation covering variables, outputs, and usage examples.
 
+All modules require **Terraform >= 1.5.0** and the **`hashicorp/google` provider 6.x**. A few modules (Cloud SQL) also use `hashicorp/random` to generate strong passwords on demand.
+
 ## Modules Overview
 
-| Module | Description | Required variables | Key optional variables | Documentation |
-| --- | --- | --- | --- | --- |
-| **VM** | Creates a Compute Engine instance with a dedicated boot disk. | `project_id`, `vm_name`, `boot_disk`, `boot_disk_image`, `subnetwork` | `region`, `zone`, `machine_type`, `network`, `tags`, `additional_disks` | [VM documentation](https://github.com/simonevernile/repo/blob/main/catalogo/gcp/vm/README.md) |
-| **Firewall** | Configures firewall rules for public and private traffic to GCP resources. | `network`, `target_tags`, `local_range` | `ssh_tags`, `allow_http`, `allow_https` | [Firewall documentation](https://github.com/simonevernile/repo/blob/main/catalogo/gcp/firewall/README.md) |
-| **Load Balancer** | Wraps the external and internal load balancer modules to build multiple LBs from a single list. | `project_id`, `load_balancers[*].name_prefix`, `load_balancers[*].type`, `load_balancers[*].region` | `load_balancers[*].network`, `subnetwork`, `address`, `tcp_ports`, `udp_ports`, `target_pool_instances`, `backend_ig`, `labels`, `enabled` | [Load Balancer documentation](https://github.com/simonevernile/repo/blob/main/catalogo/gcp/load_balancer/README.md) |
-| **Cloud SQL MySQL** | Provisions a MySQL Cloud SQL instance with optional root password and database creation. | `project_id`, `instance_name` | `region`, `database_version`, `tier`, `disk_size`, `disk_type`, `availability_type`, `deletion_protection`, `root_password`, `database_name`, `enable_public_ip` | [Cloud SQL MySQL documentation](https://github.com/simonevernile/repo/blob/main/catalogo/gcp/mysql/README.md) |
-| **Cloud SQL PostgreSQL** | Provisions a PostgreSQL Cloud SQL instance with configurable storage, availability, optional postgres password, and optional database creation. | `project_id`, `instance_name` | `region`, `database_version`, `tier`, `disk_size`, `disk_type`, `availability_type`, `deletion_protection`, `postgres_password`, `database_name`, `enable_public_ip` | [Cloud SQL PostgreSQL documentation](https://github.com/simonevernile/repo/blob/main/catalogo/gcp/postgres/README.md) |
-| **Memorystore Redis** | Creates a Redis instance for caching with optional authentication. | `project_id`, `name` | `region`, `tier`, `memory_size_gb`, `auth_enabled` | [Redis documentation](https://github.com/simonevernile/repo/blob/main/catalogo/gcp/redis/README.md) |
+| Module | Description | Key features |
+| --- | --- | --- |
+| **VM** (`catalogo/gcp/vm`) | Compute Engine instance with boot disk and optional data disks. | Shielded VM, OS Login, custom service account, CMEK, Spot/preemptible scheduling, deletion protection, labels, optional public IP. |
+| **Firewall** (`catalogo/gcp/firewall`) | Opinionated VPC firewall rules + arbitrary custom rules. | Configurable rule prefix, IAP SSH range, health-check ranges, VPC flow logging, priority, disabled toggle, free-form `custom_rules` list. |
+| **Cloud SQL MySQL** (`catalogo/gcp/mysql`) | MySQL 8 Cloud SQL instance. | Backups + binary-log retention, maintenance window, query insights, private IP, `database_flags`, additional users, optional `random_password` generation, label support. |
+| **Cloud SQL PostgreSQL** (`catalogo/gcp/postgres`) | PostgreSQL 16 Cloud SQL instance. | PITR backups, maintenance window, query insights, private IP, `database_flags`, additional users, optional `random_password` generation, label support. |
+| **Memorystore Redis** (`catalogo/gcp/redis`) | Memorystore Redis. | `redis_version`, transit encryption, read replicas (`STANDARD_HA`), maintenance window, RDB persistence, custom redis configs. |
+| **Cloud Run** (`catalogo/gcp/cloud_run`) | Cloud Run **v2** service. | Min/max scaling, request timeout & concurrency, VPC connector, Secret Manager-backed env vars, startup/liveness probes, ingress controls, IAM invokers. |
+| **Load Balancer (wrapper)** (`catalogo/gcp/load_balancer`) | Wraps the external/internal LB modules to build many LBs from a list. | TCP/UDP forwarding, labels, enable/disable per entry. |
+| **GCS Bucket** (`catalogo/gcp/gcs_bucket`) | *NEW* Cloud Storage bucket. | Uniform bucket-level access, public-access prevention, versioning, lifecycle rules, retention policy, CMEK, CORS, IAM bindings. |
+| **Service Account** (`catalogo/gcp/service_account`) | *NEW* IAM service account. | Project-level role bindings, impersonator list (`roles/iam.serviceAccountTokenCreator`), optional JSON key. |
+| **Pub/Sub Topic + Subscriptions** (`catalogo/gcp/pubsub`) | *NEW* Pub/Sub topic and a list of subscriptions. | CMEK, message retention, persistence regions, dead-letter, push subscriptions with OIDC, schema settings, publisher IAM. |
 
 ## Quickstart
 
@@ -20,102 +26,187 @@ Reusable Terraform modules for provisioning resources on Google Cloud Platform (
    git clone https://github.com/simonevernile/repo.git
    cd repo
    ```
-2. **Configure variables**
-   - Define `*.tfvars` files or set variables directly in the modules, depending on your use case.
+2. **Configure variables** via `*.tfvars` or directly in module blocks.
 3. **Initialize Terraform**
    ```bash
-   terraform init
+   terraform -chdir=examples init
    ```
-4. **Apply the configuration**
+4. **Plan and apply**
    ```bash
-   terraform apply
+   terraform -chdir=examples plan
+   terraform -chdir=examples apply
    ```
-   Review the generated plan and confirm by typing `yes` to create the resources.
 
 ## Usage Examples
 
-### VM Module
+### VM Module — hardened defaults
+
 ```hcl
 module "vm" {
   source     = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/vm?ref=main"
   project_id = var.project_id
-  vm_name    = "my-vm"
+  vm_name    = "app-vm"
   network    = "default"
   subnetwork = "default"
 
   boot_disk = {
-    name = "my-vm-boot"
+    name = "app-vm-boot"
+    size = 30
+    type = "pd-balanced"
   }
 
   boot_disk_image = "projects/debian-cloud/global/images/family/debian-12"
+
+  labels         = { app = "frontend", env = "prod" }
+  enable_oslogin = true
+
+  shielded_vm = {
+    secure_boot          = true
+    vtpm                 = true
+    integrity_monitoring = true
+  }
+
+  service_account = {
+    email = google_service_account.runtime.email
+  }
 }
 ```
 
-### Firewall Module
+### Firewall Module — IAP SSH + custom rules
+
 ```hcl
 module "firewall" {
-  source      = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/firewall?ref=main"
-  network     = "default"
-  target_tags = ["web"]
-  local_range = ["10.128.0.0/20"]
-  ssh_tags    = ["ssh"]
-  allow_http  = true
-  allow_https = true
-}
-```
-
-### Load Balancer Module
-```hcl
-module "load_balancers" {
-  source     = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/load_balancer?ref=main"
+  source     = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/firewall?ref=main"
   project_id = var.project_id
 
-  load_balancers = [
+  name_prefix         = "app"
+  network             = "default"
+  target_tags         = ["frontend"]
+  ssh_tags            = ["frontend"]
+  local_range         = ["10.0.0.0/8"]
+  allow_iap_ssh       = true
+  allow_https         = true
+  allow_health_checks = true
+  enable_logging      = true
+
+  custom_rules = [
     {
-      name_prefix = "app-ext"
-      type        = "external"
-      region      = "europe-west1"
-      tcp_ports   = [80, 443]
-      target_pool_instances = [module.vm.instance_self_link] # reuse the VM created in the previous example
-      labels      = { app = "frontend" }
-    },
-    {
-      name_prefix  = "app-int"
-      type         = "internal"
-      region       = "europe-west1"
-      network      = "default"
-      subnetwork   = "default"
-      tcp_ports    = [8080, 8443]
-      backend_ig   = "projects/${var.project_id}/zones/europe-west1-b/instanceGroups/backend"
-      labels       = { app = "backend" }
+      name        = "allow-icmp"
+      direction   = "INGRESS"
+      action      = "ALLOW"
+      target_tags = ["frontend"]
+      source_ranges = ["10.0.0.0/8"]
+      rules = [{ protocol = "icmp", ports = [] }]
     }
   ]
 }
 ```
 
-### End-to-end example: Controlled SSH access with an HTTP load balancer
+### Cloud SQL PostgreSQL — private IP + auto-generated password
 
-The [examples/main.tf](https://github.com/simonevernile/repo/blob/main/examples/main.tf) configuration composes the modules to:
+```hcl
+module "postgres" {
+  source     = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/postgres?ref=main"
+  project_id = var.project_id
 
-1. Provision a Compute Engine VM and configure a dedicated `Implementazione` user with passwordless sudo.
-2. Generate a random password for the user and set it on first boot through the startup script.
-3. Allow SSH to the VM only from a provided CIDR while exposing TCP/80 via an external load balancer.
+  instance_name     = "app-pg"
+  database_version  = "POSTGRES_16"
+  tier              = "db-custom-2-7680"
+  availability_type = "REGIONAL"
 
-After `terraform apply`, retrieve the generated credentials with:
+  private_network   = google_compute_network.vpc.id
+  enable_public_ip  = false
 
-```bash
-terraform output ssh_user
-terraform output -raw ssh_password
+  generate_password = true
+  database_name     = "app"
+
+  database_flags = {
+    "max_connections" = "200"
+    "log_min_duration_statement" = "500"
+  }
+
+  backup = {
+    enabled                        = true
+    point_in_time_recovery_enabled = true
+    start_time                     = "03:00"
+    retained_backups               = 14
+  }
+}
 ```
 
-Use the reported username and password to connect through the private network while port 80 remains publicly accessible through the load balancer.
+### Cloud Run v2 with Secret Manager + scaling
 
-> **Where is the password stored?** When Terraform runs from the `examples/` directory with the default local backend, the generated password is written to the Terraform state file on disk (for example `examples/terraform.tfstate`). That file sits alongside your configuration in the same filesystem where you execute Terraform, so secure it appropriately (restrict permissions, encrypt it at rest, or move the state to a remote backend) because anyone with read access to the state can extract the password. The `terraform output -raw ssh_password` command above is simply a convenient way to display the same secret contained in the state.
+```hcl
+module "api" {
+  source     = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/cloud_run?ref=main"
+  project_id = var.project_id
+
+  service_name = "api"
+  image        = "europe-docker.pkg.dev/${var.project_id}/apps/api:latest"
+
+  scaling = {
+    min_instances = 1
+    max_instances = 20
+  }
+
+  resource_limits = {
+    cpu    = "2"
+    memory = "1Gi"
+  }
+
+  env_vars = {
+    LOG_LEVEL = "info"
+  }
+
+  secret_env_vars = [
+    { name = "DB_PASSWORD", secret = "projects/${var.project_id}/secrets/db-password" }
+  ]
+
+  liveness_probe = {
+    port = 8080
+    path = "/healthz"
+  }
+
+  allow_unauthenticated = false
+  invoker_members       = ["serviceAccount:caller@${var.project_id}.iam.gserviceaccount.com"]
+}
+```
+
+### GCS bucket with lifecycle and CMEK
+
+```hcl
+module "artifacts" {
+  source     = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/gcs_bucket?ref=main"
+  project_id = var.project_id
+
+  name                        = "${var.project_id}-artifacts"
+  location                    = "EU"
+  versioning                  = true
+  uniform_bucket_level_access = true
+  kms_key_name                = google_kms_crypto_key.bucket.id
+
+  lifecycle_rules = [
+    { action = { type = "SetStorageClass", storage_class = "NEARLINE" }, condition = { age = "30" } },
+    { action = { type = "Delete" }, condition = { age = "365" } },
+  ]
+}
+```
+
+### End-to-end example
+
+The [examples/main.tf](examples/main.tf) configuration composes the modules to:
+
+1. Create a dedicated runtime service account with logging/monitoring roles.
+2. Provision a hardened Compute Engine VM (Shielded VM, attached SA, Rocky Linux 9 boot image) running [examples/startup.sh](examples/startup.sh), which sets up the `Implementazione` and `weblogic` service users, enables SSH password auth, installs `nfs-utils`/`unzip` and mounts the POC NFS share.
+3. Open SSH only from a configurable CIDR (plus IAP if requested) and HTTP through an external load balancer.
+4. Provision a versioned GCS bucket with lifecycle rules.
+
+After `terraform apply` the VM exposes the `Implementazione` service user (credentials managed inside `startup.sh`, not in Terraform state).
 
 ## Contributing
 
-If you encounter issues or want to propose improvements to the modules, open an *issue* or submit a *pull request*. Contributions are welcome!
+Open an issue or submit a pull request — contributions are welcome.
 
 ## License
 
-This project is distributed under the MIT license. See [LICENSE](https://github.com/simonevernile/repo/blob/main/LICENSE) for details.
+Distributed under the MIT license. See [LICENSE](https://github.com/simonevernile/repo/blob/main/LICENSE) for details.

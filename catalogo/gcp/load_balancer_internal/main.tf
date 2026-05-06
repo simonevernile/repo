@@ -6,19 +6,9 @@ locals {
   udp_ports_str = toset([for p in var.udp_ports : tostring(p)])
 }
 
-data "google_compute_network" "network" {
-  name    = var.network
-  project = var.project_id
-}
-
-data "google_compute_subnetwork" "subnetwork" {
-  name    = var.subnetwork
-  region  = var.region
-  project = var.project_id
-}
-
 resource "google_compute_address" "ilb_ip" {
   name         = "${var.name_prefix}-ilb-ip"
+  project      = var.project_id
   region       = var.region
   address_type = "INTERNAL"
   subnetwork   = local.sub_self_link
@@ -29,30 +19,36 @@ resource "google_compute_address" "ilb_ip" {
 
 resource "google_compute_health_check" "ilb_hc_tcp" {
   name               = "${var.name_prefix}-ilb-hc-tcp"
+  project            = var.project_id
   timeout_sec        = 5
   check_interval_sec = 5
 
-  tcp_health_check { port = 80 }
+  tcp_health_check { port = var.health_check_port }
 
   log_config { enable = true }
 }
 
 resource "google_compute_region_backend_service" "bes" {
   name                  = "${var.name_prefix}-ilb-bes"
+  project               = var.project_id
   region                = var.region
   protocol              = "TCP"
   load_balancing_scheme = "INTERNAL"
   health_checks         = [google_compute_health_check.ilb_hc_tcp.self_link]
 
-  backend {
-    group          = var.backend_instance_group_zonal
-    balancing_mode = "CONNECTION"
+  dynamic "backend" {
+    for_each = var.backend_instance_group_zonal == null ? [] : [var.backend_instance_group_zonal]
+    content {
+      group          = backend.value
+      balancing_mode = "CONNECTION"
+    }
   }
 }
 
 resource "google_compute_forwarding_rule" "tcp_fr" {
   for_each              = local.tcp_ports_str
   name                  = "${var.name_prefix}-ilb-tcp-${each.value}"
+  project               = var.project_id
   region                = var.region
   load_balancing_scheme = "INTERNAL"
   ip_address            = google_compute_address.ilb_ip.address
@@ -67,6 +63,7 @@ resource "google_compute_forwarding_rule" "tcp_fr" {
 resource "google_compute_forwarding_rule" "udp_fr" {
   for_each              = local.udp_ports_str
   name                  = "${var.name_prefix}-ilb-udp-${each.value}"
+  project               = var.project_id
   region                = var.region
   load_balancing_scheme = "INTERNAL"
   ip_address            = google_compute_address.ilb_ip.address
