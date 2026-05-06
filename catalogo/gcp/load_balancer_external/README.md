@@ -14,7 +14,7 @@ The module provisions a regional external TCP/UDP Network Load Balancer using a 
 Prerequisites:
 
 - Instances referenced in `target_pool_instances` must exist in the selected region/zone.
-- Firewall rules must allow health check probes from Google on the relevant ports.
+- Firewall rules must allow health check probes from Google on the relevant ports, also on the backends services like VM.
 - The Compute Engine API must be enabled on the project.
 
 ## Requirements
