@@ -8,7 +8,7 @@ output "id" {
   value       = google_compute_instance_group.ig.id
 }
 
-output "self_link" {
+output "instance_self_link" {
   description = "Self link of the instance group. Use this as the backend group of an internal/network LB."
   value       = google_compute_instance_group.ig.self_link
 }

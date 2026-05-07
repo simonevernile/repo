@@ -285,7 +285,7 @@ module "ilb" {
     network     = module.vpc.self_link
     subnetwork  = module.subnets.self_links["app-ew1"]
     tcp_ports   = [80]
-    backend_ig  = module.backend_ig.self_link
+    backend_ig  = module.backend_ig.instance_self_link
   }]
 }
 ```
