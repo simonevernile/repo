@@ -19,7 +19,7 @@ output "instance_id" {
 }
 
 output "instance_self_link" {
-  description = "The self link of the VM instance"
+  description = "The self link of the VM instance."
   value       = google_compute_instance.my_vm.self_link
 }
 
