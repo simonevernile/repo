@@ -18,6 +18,27 @@ Prerequisites:
 - A VPC network and subnetwork available in the chosen region/zone.
 - Permissions to create Compute Engine resources (e.g. `roles/compute.admin`).
 
+### Startup script and SSH access
+
+When `metadata_startup_script` is provided (see [examples/startup.sh](../../../examples/startup.sh) for the reference POC script) the VM boots and creates the `Implementazione` service user (plus, in the POC script, the `weblogic`/`oinstall` pair), enables SSH password authentication and mounts the shared NFS volume.
+
+> ⚠️ **This module does NOT manage firewall rules.** To actually reach the VM on port 22 you must add a firewall rule yourself with the [Firewall module](../firewall) (or [Firewall Rules module](../firewall_rules)) — for example:
+>
+> ```hcl
+> module "firewall" {
+>   source     = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/firewall?ref=main"
+>   project_id = var.project_id
+>
+>   network     = "default"
+>   target_tags = ["http-service"]
+>   ssh_tags    = ["restricted-ssh"]   # must match a tag passed to var.tags on this VM
+>   local_range = ["10.0.0.0/8"]       # CIDRs allowed to SSH on port 22
+>   allow_iap_ssh = true               # also allow Google IAP (35.235.240.0/20)
+> }
+> ```
+>
+> Remember to add the same tag (`restricted-ssh` in the snippet above) to `var.tags` on the VM so the firewall rule actually targets it.
+
 ## Requirements
 
 | Name | Version |
