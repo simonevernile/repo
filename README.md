@@ -15,9 +15,13 @@ All modules require **Terraform >= 1.5.0** and the **`hashicorp/google` provider
 | **Memorystore Redis** (`catalogo/gcp/redis`) | Memorystore Redis. | `redis_version`, transit encryption, read replicas (`STANDARD_HA`), maintenance window, RDB persistence, custom redis configs. |
 | **Cloud Run** (`catalogo/gcp/cloud_run`) | Cloud Run **v2** service. | Min/max scaling, request timeout & concurrency, VPC connector, Secret Manager-backed env vars, startup/liveness probes, ingress controls, IAM invokers. |
 | **Load Balancer (wrapper)** (`catalogo/gcp/load_balancer`) | Wraps the external/internal LB modules to build many LBs from a list. | TCP/UDP forwarding, labels, enable/disable per entry. |
-| **GCS Bucket** (`catalogo/gcp/gcs_bucket`) | *NEW* Cloud Storage bucket. | Uniform bucket-level access, public-access prevention, versioning, lifecycle rules, retention policy, CMEK, CORS, IAM bindings. |
-| **Service Account** (`catalogo/gcp/service_account`) | *NEW* IAM service account. | Project-level role bindings, impersonator list (`roles/iam.serviceAccountTokenCreator`), optional JSON key. |
-| **Pub/Sub Topic + Subscriptions** (`catalogo/gcp/pubsub`) | *NEW* Pub/Sub topic and a list of subscriptions. | CMEK, message retention, persistence regions, dead-letter, push subscriptions with OIDC, schema settings, publisher IAM. |
+| **GCS Bucket** (`catalogo/gcp/gcs_bucket`) | Cloud Storage bucket. | Uniform bucket-level access, public-access prevention, versioning, lifecycle rules, retention policy, CMEK, CORS, IAM bindings. |
+| **Service Account** (`catalogo/gcp/service_account`) | IAM service account. | Project-level role bindings, impersonator list (`roles/iam.serviceAccountTokenCreator`), optional JSON key. |
+| **Pub/Sub Topic + Subscriptions** (`catalogo/gcp/pubsub`) | Pub/Sub topic and a list of subscriptions. | CMEK, message retention, persistence regions, dead-letter, push subscriptions with OIDC, schema settings, publisher IAM. |
+| **VPC Network** (`catalogo/gcp/network`) | *NEW* `google_compute_network` (the GCP equivalent of an Azure vnet). | Custom-mode VPC, regional/global routing, MTU, optional removal of the default 0.0.0.0/0 route, optional explicit egress route, Private Service Access peering for Cloud SQL/Memorystore. |
+| **Subnetworks** (`catalogo/gcp/subnet`) | *NEW* One or more `google_compute_subnetwork` from a list. | Per-subnet region override, Private Google Access, secondary ranges (GKE pods/services), VPC flow logs, IPv4/IPv6 stack, `purpose`/`role` for proxy-only or PSC subnets. |
+| **Firewall Rules** (`catalogo/gcp/firewall_rules`) | *NEW* Generic, list-driven firewall rules (no opinionated SSH/HTTP defaults). | INGRESS/EGRESS, ALLOW/DENY, source/target tags or service accounts, `destination_ranges`, priority, disabled toggle, optional logging. |
+| **Instance Group** (`catalogo/gcp/instance_group`) | *NEW* Unmanaged zonal `google_compute_instance_group`. | Members from a list of self-links, named ports — designed as the backend group of an internal/network LB. |
 
 ## Quickstart
 
@@ -189,6 +193,100 @@ module "artifacts" {
     { action = { type = "SetStorageClass", storage_class = "NEARLINE" }, condition = { age = "30" } },
     { action = { type = "Delete" }, condition = { age = "365" } },
   ]
+}
+```
+
+### VPC + Subnets + Firewall Rules + Instance Group
+
+```hcl
+module "vpc" {
+  source     = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/network?ref=main"
+  project_id = var.project_id
+
+  name                          = "core-vpc"
+  routing_mode                  = "REGIONAL"
+  enable_private_service_access = true # for Cloud SQL/Memorystore private IP
+}
+
+module "subnets" {
+  source     = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/subnet?ref=main"
+  project_id = var.project_id
+  network    = module.vpc.self_link
+  region     = "europe-west1"
+
+  subnets = [
+    {
+      name          = "app-ew1"
+      ip_cidr_range = "10.10.0.0/24"
+      flow_logs     = {} # default sampling
+    },
+    {
+      name          = "gke-ew1"
+      ip_cidr_range = "10.20.0.0/22"
+      secondary_ip_ranges = [
+        { range_name = "pods",     ip_cidr_range = "10.40.0.0/14" },
+        { range_name = "services", ip_cidr_range = "10.44.0.0/20" },
+      ]
+    },
+  ]
+}
+
+module "fw" {
+  source     = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/firewall_rules?ref=main"
+  project_id = var.project_id
+  network    = module.vpc.self_link
+
+  rules = [
+    {
+      name          = "allow-internal-tcp"
+      direction     = "INGRESS"
+      action        = "ALLOW"
+      priority      = 1000
+      source_ranges = ["10.0.0.0/8"]
+      target_tags   = ["app"]
+      rules         = [{ protocol = "tcp", ports = ["80", "443"] }]
+    },
+    {
+      name               = "deny-egress-public"
+      direction          = "EGRESS"
+      action             = "DENY"
+      priority           = 100
+      destination_ranges = ["0.0.0.0/0"]
+      target_tags        = ["restricted"]
+      rules              = [{ protocol = "all" }]
+    },
+  ]
+}
+
+module "backend_ig" {
+  source     = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/instance_group?ref=main"
+  project_id = var.project_id
+
+  name = "app-ig-ew1b"
+  zone = "europe-west1-b"
+
+  instances = [module.vm.instance_self_link]
+
+  named_ports = [
+    { name = "http",  port = 80 },
+    { name = "https", port = 443 },
+  ]
+}
+
+# Plug it as backend of the internal LB:
+module "ilb" {
+  source     = "git::https://github.com/simonevernile/repo.git//catalogo/gcp/load_balancer?ref=main"
+  project_id = var.project_id
+
+  load_balancers = [{
+    name_prefix = "app"
+    type        = "internal"
+    region      = "europe-west1"
+    network     = module.vpc.self_link
+    subnetwork  = module.subnets.self_links["app-ew1"]
+    tcp_ports   = [80]
+    backend_ig  = module.backend_ig.self_link
+  }]
 }
 ```
 
